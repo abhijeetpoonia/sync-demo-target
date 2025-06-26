@@ -38,6 +38,16 @@ jobs:
       run: |
         git clone https://${{ secrets.TARGET_REPO_TOKEN }}@github.com/${{ secrets.TARGET_REPO_OWNER }}/${{ secrets.TARGET_REPO_NAME }}.git ../target-repo
 
+    - name: List files in source repository before sync
+      run: |
+        echo "📂 Files in source repository:"
+        ls -la
+
+    - name: List files in target repository before sync
+      run: |
+        echo "📂 Files in target repository before sync:"
+        ls -la ../target-repo
+
     - name: Sync files to target (preserving root structure)
       run: |
         rsync -av --delete --exclude='.git' ./ ../target-repo/
