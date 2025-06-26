@@ -1,12 +1,8 @@
 name: Repository Sync - Auto + API
 
-# Triggers BOTH ways:
 on:
-  # 1. Automatic trigger on commit/push
   push:
     branches: [ main ]
-  
-  # 2. API trigger via repository dispatch
   repository_dispatch:
     types:
       - sync-repos
@@ -16,13 +12,11 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    
+
     steps:
-    # Step 1: Get the source code
     - name: Checkout source repository
       uses: actions/checkout@v4
 
-    # Step 2: Show how it was triggered
     - name: Display trigger info
       run: |
         if [ "${{ github.event_name }}" = "push" ]; then
@@ -35,50 +29,39 @@ jobs:
           echo "Triggered by: ${{ github.event.client_payload.triggered_by || 'API' }}"
         fi
 
-    # Step 3: Configure Git
     - name: Configure Git
       run: |
         git config --global user.name "Sync Bot"
         git config --global user.email "sync@github.com"
 
-    # Step 4: Clone target repository
     - name: Clone target repository
       run: |
-        git clone https://${{ secrets.TARGET_REPO_TOKEN }}@github.com/${{ secrets.TARGET_REPO_OWNER }}/${{ secrets.TARGET_REPO_NAME }}.git target
+        git clone https://${{ secrets.TARGET_REPO_TOKEN }}@github.com/${{ secrets.TARGET_REPO_OWNER }}/${{ secrets.TARGET_REPO_NAME }}.git ../target-repo
 
-    # Step 5: Sync files
-    - name: Sync files to target
+    - name: Sync files to target (preserving root structure)
       run: |
-        # Copy all files except .git folder
-        rsync -av --exclude='.git' ./ target/
-        
-        cd target
-        
-        # Create commit message based on trigger type
+        rsync -av --delete --exclude='.git' ./ ../target-repo/
+
+        cd ../target-repo
+
         if [ "${{ github.event_name }}" = "push" ]; then
           COMMIT_MSG="Auto sync from commit: ${{ github.event.head_commit.message }}
-          
+
           Triggered by: Push to main branch
           Source commit: ${{ github.sha }}
           Time: $(date)"
         else
           COMMIT_MSG="API sync via repository dispatch
-          
+
           Event: ${{ github.event.action }}
           Triggered by: ${{ github.event.client_payload.triggered_by || 'API' }}
           Time: $(date)"
         fi
-        
+
         git add .
         git commit -m "$COMMIT_MSG" || echo "No changes to commit"
         git push origin main
 
-    # Step 6: Success message
     - name: Success message
       run: |
         echo "✅ Successfully synced to target repository!"
-        if [ "${{ github.event_name }}" = "push" ]; then
-          echo "Sync completed automatically after commit"
-        else
-          echo "Sync completed via API trigger"
-        fi
